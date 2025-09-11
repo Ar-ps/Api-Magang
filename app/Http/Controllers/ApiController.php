@@ -3,18 +3,19 @@
 namespace App\Http\Controllers;
 
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
+use App\Models\ApiData;
 
 class ApiController extends Controller
 {
     public function dashboard()
     {
-        // default: tampilkan units
+        // default tampilkan units
         return $this->module('units');
     }
 
     public function module($name)
     {
-        // daftar semua modul & endpoint
         $endpoints = [
             'units'            => '/units',
             'asset'            => '/asset',
@@ -54,35 +55,40 @@ class ApiController extends Controller
         }
 
         $client = new Client();
-        $url = env('API_BASE_URL') . $endpoints[$name];
+        $url    = env('API_BASE_URL') . $endpoints[$name];
 
         try {
-            // semua modul pakai GET
+            // 1️⃣ GET dari API eksternal
             $response = $client->get($url, [
                 'headers' => [
                     'X-Auth-Token' => env('API_AUTH_TOKEN'),
                     'Content-Type' => 'application/json',
                     'Accept'       => 'application/json',
-                    'User-Agent'   => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
-                    'Referer'      => env('APP_URL', 'http://localhost'),
-                    'Origin'       => env('APP_URL', 'http://localhost'),
-                    'Connection'   => 'keep-alive',
-                    'Accept-Language' => 'en-US,en;q=0.9',
-                    'Accept-Encoding' => 'gzip, deflate, br',
                 ],
                 'verify' => false
             ]);
 
-            $body = $response->getBody();
-            $data = json_decode((string) $body, true);
+            $body   = $response->getBody();
+            $result = json_decode((string) $body, true);
+
+            // Simpan snapshot ke DB (overwrite kalau modul sudah ada)
+            ApiData::updateOrCreate(
+                ['module' => $name],
+                ['payload' => $result['data'] ?? []]
+            );
 
         } catch (\Exception $e) {
-            $data = [
-                'success' => 0,
-                'message' => 'Error: ' . $e->getMessage(),
-                'data'    => []
-            ];
+            \Log::error("API error for module $name", ['error' => $e->getMessage()]);
         }
+
+        // Ambil data terakhir dari DB
+        $latest = ApiData::where('module', $name)->latest()->first();
+
+        $data = [
+            'status'  => $latest ? 1 : 0,
+            'message' => $latest ? 'Data loaded from DB' : 'No data found',
+            'data'    => $latest ? $latest->payload : [],
+        ];
 
         return view('esikat.dashboard', [
             'activeModule' => $name,

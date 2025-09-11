@@ -56,8 +56,8 @@
 
 @section('content')
     @if(
-        (isset($data['status']) && $data['status'] == 1 && !empty($data['data'])) ||
-        (isset($data['success']) && $data['success'] == 1 && !empty($data['data']))
+        (!empty($data['data']) && ($data['status'] ?? false)) ||
+        (!empty($data['data']) && ($data['success'] ?? false))
     )
         @php
             $records = $data['data'];
