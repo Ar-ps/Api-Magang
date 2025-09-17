@@ -10,57 +10,107 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom Dashboard JS -->
+    <script src="{{ asset('js/dashboard.js') }}"></script>
     
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Custom Styles -->
-     <!-- ✅ Custom CSS -->
     <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
-    
 </head>
 <body>
     <div class="container-fluid p-0">
         <div class="row g-0">
-            <!-- Mobile Toggle Button -->
-            <button class="mobile-toggle btn btn-primary position-fixed" 
-                    style="top: 1rem; left: 1rem; z-index: 1001; border-radius: 12px;"
-                    onclick="toggleSidebar()">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <!-- Sidebar -->
-            <nav class="col-lg-2 col-md-3 sidebar" id="sidebar">
+           <!-- Sidebar -->
+            <nav class="sidebar" id="sidebar">
+                <!-- Brand -->
                 <div class="sidebar-brand">
                     <i class="fas fa-chart-line text-primary mb-2" style="font-size: 2rem;"></i>
                     <h4 class="text-white mb-0">API Dashboard</h4>
                     <small class="text-white">Data Management</small>
                 </div>
 
+                <!-- Modules -->
                 <div class="mt-4">
                     @foreach($modules as $mod)
                         <div class="nav-item">
-                            <a href="{{ route('module.show', $mod) }}"
-                               class="{{ $activeModule == $mod ? 'active' : '' }}">
-                                <i class="fas {{ getModuleIcon($mod) }}"></i>
-                                {{ ucfirst($mod) }}
+                            @if($mod === 'productionprocess')
+                                {{-- Modul khusus Production Process dengan 3 submenu --}}
+                                <a href="{{ route('dashboard.module', $mod) }}?view=master"
+                                class="d-flex justify-content-between align-items-center {{ $activeModule == $mod ? 'active' : '' }}">
+                                    <div>
+                                        <i class="fas {{ getModuleIcon($mod) }}"></i>
+                                        <span>{{ ucfirst($mod) }}</span>
+                                    </div>
+                                    <i class="fas fa-caret-down"></i>
+                                </a>
+
                                 @if($activeModule == $mod)
-                                    <span class="ms-auto">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </span>
+                                    <div class="ps-4 py-2">
+                                        <a href="{{ route('dashboard.module', $mod) }}?view=master" 
+                                        class="d-block small mb-1 {{ request('view') == 'master' ? 'active text-white' : 'text-white-50' }}">
+                                            Master Data
+                                        </a>
+                                        <a href="{{ route('dashboard.module', $mod) }}?view=inputs" 
+                                        class="d-block small mb-1 {{ request('view') == 'inputs' ? 'active text-white' : 'text-white-50' }}">
+                                            Input Items
+                                        </a>
+                                        <a href="{{ route('dashboard.module', $mod) }}?view=outputs" 
+                                        class="d-block small {{ request('view') == 'outputs' ? 'active text-white' : 'text-white-50' }}">
+                                            Output Items
+                                        </a>
+                                    </div>
                                 @endif
-                            </a>
+
+                            @elseif(array_key_exists($mod, $detailMap))
+                                {{-- Modul dengan 2 submenu --}}
+                                <a href="{{ route('dashboard.module', $mod) }}?view=master"
+                                class="d-flex justify-content-between align-items-center {{ $activeModule == $mod ? 'active' : '' }}">
+                                    <div>
+                                        <i class="fas {{ getModuleIcon($mod) }}"></i>
+                                        <span>{{ ucfirst($mod) }}</span>
+                                    </div>
+                                    <i class="fas fa-caret-down"></i>
+                                </a>
+
+                                @if($activeModule == $mod)
+                                    <div class="ps-4 py-2">
+                                        <a href="{{ route('dashboard.module', $mod) }}?view=master" 
+                                        class="d-block small mb-1 {{ request('view') == 'master' ? 'active text-white' : 'text-white-50' }}">
+                                            Master Data
+                                        </a>
+                                        <a href="{{ route('dashboard.module', $mod) }}?view=detail" 
+                                        class="d-block small {{ request('view') == 'detail' ? 'active text-white' : 'text-white-50' }}">
+                                            Detail Items
+                                        </a>
+                                    </div>
+                                @endif
+
+                            @else
+                                {{-- Modul tanpa detail --}}
+                                <a href="{{ route('dashboard.module', $mod) }}" 
+                                class="{{ $activeModule == $mod ? 'active' : '' }}">
+                                    <i class="fas {{ getModuleIcon($mod) }}"></i>
+                                    <span>{{ ucfirst($mod) }}</span>
+                                </a>
+                            @endif
                         </div>
                     @endforeach
                 </div>
-                <!-- Footer in sidebar -->
-                <div class="mt-auto p-3 text-center" style="margin-top: auto;">
+
+                <!-- Footer -->
+                <div class="mt-auto p-3 text-center">
                     <small class="text-muted">
                         <i class="fas fa-clock me-1"></i>
                         Last updated: {{ now()->format('H:i') }}
                     </small>
                 </div>
             </nav>
+
 
             <!-- Main Content -->
             <main class="col-lg-10 col-md-9 ms-auto">
@@ -131,15 +181,6 @@
                 }
             }
         });
-
-        // Auto-dismiss alerts
-        setTimeout(function() {
-            document.querySelectorAll('.alert').forEach(function(alert) {
-                if (alert.querySelector('.btn-close')) {
-                    alert.querySelector('.btn-close').click();
-                }
-            });
-        }, 5000);
     </script>
 
     @stack('scripts')

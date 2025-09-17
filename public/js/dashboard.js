@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Set default view
     toggleView('table');
+
+    // Atur margin awal
+    adjustMainContent();
 });
 
 function refreshData() {
@@ -19,7 +22,6 @@ function refreshData() {
     btn.innerHTML = '<div class="loading"></div> Loading...';
     btn.disabled = true;
 
-    // Simulate refresh
     setTimeout(() => {
         location.reload();
     }, 1000);
@@ -29,13 +31,11 @@ function exportData() {
     const table = document.getElementById('dataTable');
     let csv = [];
 
-    // Headers
     const headers = Array.from(table.querySelectorAll('thead th'))
         .slice(0, -1)
         .map(th => th.textContent.trim());
     csv.push(headers.join(','));
 
-    // Data rows
     const rows = table.querySelectorAll('tbody tr');
     rows.forEach(row => {
         const cells = Array.from(row.querySelectorAll('td')).slice(0, -1);
@@ -155,27 +155,36 @@ function showDetailModal(title, data, id) {
     let html = '';
 
     if (Array.isArray(data)) {
-        html += '<div class="table-responsive">';
-        html += '<table class="table table-modern mb-0">';
-        html += '<thead><tr>';
-        Object.keys(data[0]).forEach(key => {
-            html += `<th>${key.replace(/_/g, ' ').toUpperCase()}</th>`;
-        });
-        html += '</tr></thead><tbody>';
-        data.forEach(item => {
-            html += '<tr>';
-            Object.values(item).forEach(val => {
-                html += `<td>${val ?? '-'}</td>`;
+        if (data.length > 0 && typeof data[0] === 'object') {
+            html += `<p><strong>${data.length}</strong> items found</p>`;
+            html += '<div class="table-responsive">';
+            html += '<table class="table table-modern mb-0">';
+            html += '<thead><tr>';
+            Object.keys(data[0]).forEach(key => {
+                html += `<th>${key.replace(/_/g, ' ').toUpperCase()}</th>`;
             });
-            html += '</tr>';
-        });
-        html += '</tbody></table></div>';
-    } else if (typeof data === 'object') {
+            html += '</tr></thead><tbody>';
+            data.forEach(item => {
+                html += '<tr>';
+                Object.values(item).forEach(val => {
+                    html += `<td>${val ?? '-'}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table></div>';
+        } else {
+            html += `<p>${data.join(', ')}</p>`;
+        }
+    } else if (typeof data === 'object' && data !== null) {
         html += '<div class="table-responsive">';
         html += '<table class="table table-modern mb-0">';
         html += '<tbody>';
         for (const [key, val] of Object.entries(data)) {
-            html += `<tr><th style="width:30%">${key.replace(/_/g, ' ').toUpperCase()}</th><td>${val ?? '-'}</td></tr>`;
+            if (Array.isArray(val)) {
+                html += `<tr><th style="width:30%">${key.replace(/_/g, ' ').toUpperCase()}</th><td>${val.length} items</td></tr>`;
+            } else {
+                html += `<tr><th style="width:30%">${key.replace(/_/g, ' ').toUpperCase()}</th><td>${val ?? '-'}</td></tr>`;
+            }
         }
         html += '</tbody></table></div>';
     } else {
@@ -201,3 +210,21 @@ function showRawData() {
     const raw = document.getElementById('rawData');
     raw.classList.toggle('show');
 }
+
+/* =============================
+   Sidebar Control
+============================= */
+function adjustMainContent() {
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('.main-content');
+
+    if (window.innerWidth > 768 && sidebar && !sidebar.classList.contains('collapsed')) {
+        main.style.marginLeft = sidebar.offsetWidth + "px";
+    } else if (window.innerWidth > 768 && sidebar.classList.contains('collapsed')) {
+        main.style.marginLeft = "80px";
+    } else {
+        main.style.marginLeft = "0";
+    }
+}
+
+window.addEventListener('resize', adjustMainContent);

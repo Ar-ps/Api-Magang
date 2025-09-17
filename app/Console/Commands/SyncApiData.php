@@ -1,73 +1,89 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Console\Commands;
 
-use GuzzleHttp\Client;
-use App\Models\ApiData;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Console\Command;
+use App\Http\Controllers\ApiController;
+use Illuminate\Console\Scheduling\Schedule;
 
-class SyncApiData implements ShouldQueue
+class SyncApiData extends Command
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    /**
+     * Nama command yang dipakai di artisan
+     */
+    protected $signature = 'sync:api';
 
-    protected $module;
-    protected $endpoint;
+    /**
+     * Deskripsi command
+     */
+    protected $description = 'Sinkronisasi semua modul dari API eksternal tiap 1 menit';
 
-    public function __construct($module, $endpoint)
+    /**
+     * Jadwalkan eksekusi command (Laravel 11+ style)
+     */
+    public function schedule(Schedule $schedule)
     {
-        $this->module   = $module;
-        $this->endpoint = $endpoint;
+        // jalan tiap menit
+        $schedule->command(static::class)->everyMinute();
     }
 
+    /**
+     * Eksekusi command
+     */
     public function handle()
     {
-        $client = new Client();
-        $url    = env('API_BASE_URL') . $this->endpoint;
+        $this->info('🚀 Memulai sinkronisasi data dari API...');
 
-        try {
-            $response = $client->get($url, [
-                'headers' => [
-                    'X-Auth-Token' => env('API_AUTH_TOKEN'),
-                    'Accept'       => 'application/json',
-                ],
-                'verify' => false
-            ]);
+        $api = new ApiController();
 
-            $body   = $response->getBody();
-            $result = json_decode((string) $body, true);
-            $newData = $result['data'] ?? [];
+        // daftar semua method fetch di ApiController
+        $methods = [
+            'fetchUnits',
+            'fetchItems',
+            'fetchEntity',
+            'fetchDepartments',
+            'fetchSoc',
+            'fetchBoms',
+            'fetchProductionPlan',
+            'fetchPurchaseOrder',
+            'fetchGoodsReceipt',   // kalau ada
+            'fetchReturn',
+            'fetchRequest',
+            'fetchMutation',
+            'fetchRejects',
+            'fetchProductionProcess',
+            'fetchSubContractOut',
+            'fetchSubContractIn',
+            'fetchProductionOutput',
+            'fetchScrapIn',
+            'fetchScrapOut',
+            'fetchScrapOutExternal',
+            'fetchPackingList',
+            'fetchAssetOrder',
+            'fetchAssetIn',
+            'fetchInternalAsset',
+            'fetchExternalAsset',
+            'fetchCustomIns',
+            'fetchCustomOuts',     // kalau ada
+            'fetchCrm',
+            'fetchGsn',
+            'fetchItemCategories',
+        ];
 
-            // Ambil data terakhir dari DB
-            $latest = ApiData::where('module', $this->module)->latest()->first();
-
-            // Bandingkan payload
-            if (!$latest || json_encode($latest->payload) !== json_encode($newData)) {
-                // Update DB
-                ApiData::updateOrCreate(
-                    ['module' => $this->module],
-                    ['payload' => $newData]
-                );
-
-                // Kirim ke API internal
-                Http::post(route('store.api.data'), [
-                    'module'  => $this->module,
-                    'payload' => $newData,
-                ]);
-
-                \Log::info("Data {$this->module} diperbarui dari API eksternal.");
+        foreach ($methods as $method) {
+            if (method_exists($api, $method)) {
+                try {
+                    $this->info("⏳ Menjalankan {$method}...");
+                    $api->$method();
+                    $this->info("✅ {$method} selesai.");
+                } catch (\Exception $e) {
+                    $this->error("❌ Error pada {$method}: " . $e->getMessage());
+                }
             } else {
-                \Log::info("Data {$this->module} tidak berubah, tidak ada update.");
+                $this->warn("⚠️ Method {$method} tidak ada di ApiController.");
             }
-
-        } catch (\Exception $e) {
-            \Log::error("Sync gagal untuk module {$this->module}", [
-                'error' => $e->getMessage()
-            ]);
         }
+
+        $this->info('🎉 Semua modul selesai disinkronisasi.');
     }
 }
